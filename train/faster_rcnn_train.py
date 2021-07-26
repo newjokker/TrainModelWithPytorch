@@ -12,13 +12,13 @@ import numpy as np
 from PIL import Image
 import matplotlib.pyplot as plt
 from torchvision import datasets, transforms
-from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
-from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
+
 from vision_tools import transforms as T
-from vision_tools.engine import train_one_epoch_segment
+from vision_tools.engine import train_one_epoch, evaluate
 from vision_tools import utils
-from vision_tools.jo_dataset import GetSegmentDataset
+from vision_tools.jo_dataset import GetDataset
 from JoTools.txkj.parseXml import parse_xml
+
 
 """
 # 运行的 torch 环境
@@ -28,7 +28,7 @@ from JoTools.txkj.parseXml import parse_xml
     * python 3.5.6
     * torch-1.5.0+cu92-cp35-cp35m-linux_x86_64
     * torchvision-0.6.0+cu92-cp35-cp35m-linux_x86_64
-
+    
 # 当前代码验证部分是 cpu 跑的，所以会特别慢
 # 参考：
 """
@@ -39,8 +39,6 @@ from JoTools.txkj.parseXml import parse_xml
 """
 * python3 train.py -rd /home/ldq/000_train_data/wtx_fas_train_data --gpuID 2 -sd ./model -ep 300 -bs 5 -se 5 -mv 4 
 """
-
-
 # fixme 为什么验证集的打破的数据每次都不一样
 # todo 查看一下是不是因为 transform 才导致训练那么慢的
 
@@ -67,7 +65,6 @@ def args_parse():
     assign_args = vars(ap.parse_args())  # vars 返回对象object的属性和属性值的字典对象
     return assign_args
 
-
 def get_transform(train):
     # converts the image, a PIL image, into a PyTorch Tensor
     # fixme 这边先将图像结构转为 numpy 处理后再转为 tensor
@@ -91,7 +88,6 @@ def get_transform(train):
 
     return T.Compose(assign_transforms)
 
-
 def print_log(metric_logger):
     """打印训练信息"""
     lr = metric_logger.meters['lr']
@@ -109,11 +105,10 @@ def print_log(metric_logger):
     print("loss_rpn_box_reg : {0}".format(loss_rpn_box_reg))
     print('-' * 50)
 
-
 def save_train_log(train_log_folder):
     """记录训练命令"""
     if not os.path.exists(train_log_folder): os.makedirs(train_log_folder)
-    train_log_path = os.path.join(train_log_folder, 'train_log.txt')
+    train_log_path = os.path.join(train_log_folder, 'train_faster_log.txt')
     time_str = datetime.datetime.strftime(datetime.datetime.now() + datetime.timedelta(hours=13), "%Y-%m-%d-%H:%M:%S")
     with open(train_log_path, 'a') as txt_file:
         txt_file.write(time_str + " : ")
@@ -125,7 +120,7 @@ def save_train_log(train_log_folder):
 if __name__ == "__main__":
 
     args = args_parse()
-    train_log_dir = "./logs"
+    train_log_dir = "../logs"
     save_train_log(train_log_dir)
     # ----------------------------------------------------------------------------------------------------------------------
     root_dir = args["root_dir"].rstrip('/')
@@ -145,7 +140,7 @@ if __name__ == "__main__":
         save_name = os.path.split(root_dir)[1]
     # ----------------------------------------------------------------------------------------------------------------------
     # label_list = ["fzc_yt", "fzc_sm", "fzc_gt", "fzc_other", "zd_yt", 'zd_sm', "zd_gt", "zd_other", "qx_yt", "qx_sm", "qx_gt", "other"]
-    label_list = ["fzc"]
+    label_list = ["fzc", "other"]
     # label_list = list(map(lambda x: x.strip(), args["class_list"].split(',')))
     # ----------------------------------------------------------------------------------------------------------------------
     label_dict = {label_list[i]: i + 1 for i in range(len(label_list))}
@@ -155,35 +150,26 @@ if __name__ == "__main__":
     # get train_dataset, test_dataset
     if test_dir:
         # get dataset
-        # fixme 完善 transform 函数
-        train_dataset = GetSegmentDataset(root_dir, label_dict, get_transform(train=False))
-        dataset_test = GetSegmentDataset(test_dir, label_dict, get_transform(train=False))
+        train_dataset = GetDataset(root_dir, label_dict, get_transform(train=True))
+        dataset_test = GetDataset(test_dir, label_dict, get_transform(train=False))
     else:
         # get dataset
-        train_dataset = GetSegmentDataset(root_dir, label_dict, get_transform(train=False))
-        dataset_test = GetSegmentDataset(root_dir, label_dict, get_transform(train=False))
+        train_dataset = GetDataset(root_dir, label_dict, get_transform(train=True))
+        dataset_test = GetDataset(root_dir, label_dict, get_transform(train=False))
         # do test for 200 img
         indices = torch.randperm(len(train_dataset)).tolist()
-        train_dataset = torch.utils.data.Subset(train_dataset, indices[:-20])
-        dataset_test = torch.utils.data.Subset(dataset_test, indices[-20:])
+        train_dataset = torch.utils.data.Subset(train_dataset, indices[:-200])
+        dataset_test = torch.utils.data.Subset(dataset_test, indices[-200:])
 
     # get data_loader
     data_loader_train = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, collate_fn=utils.collate_fn)
-    data_loader_test = torch.utils.data.DataLoader(dataset_test, batch_size=batch_size, shuffle=False, num_workers=num_workers, collate_fn=utils.collate_fn)
+    data_loader_test = torch.utils.data.DataLoader(dataset_test, batch_size=batch_size, shuffle=False,  num_workers=num_workers, collate_fn=utils.collate_fn)
 
     # get model
     add_epoch = 0
     if args["assign_model"] is None:
-        model = torchvision.models.detection.maskrcnn_resnet50_fpn(pretrained=True)
-        # get number of input features for the classifier
-        in_features = model.roi_heads.box_predictor.cls_score.in_features
-        # replace the pre-trained head with a new one
-        model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
-        # now get the number of input features for the mask classifier
-        in_features_mask = model.roi_heads.mask_predictor.conv5_mask.in_channels
-        hidden_layer = 256
-        # and replace the mask predictor with a new one
-        model.roi_heads.mask_predictor = MaskRCNNPredictor(in_features_mask, hidden_layer, num_classes)
+        model = torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=False, progress=True, num_classes=num_classes, pretrained_backbone=True)
+        # torchvision.models.detection.
     else:
         model = torch.load(args["assign_model"])
         add_epoch = args["add_epoch"]
@@ -192,9 +178,10 @@ if __name__ == "__main__":
 
     # construct an optimizer
     params = [p for p in model.parameters() if p.requires_grad]
-    optimizer = torch.optim.SGD(params, lr=0.005, momentum=0.9, weight_decay=0.0005)
+    optimizer = torch.optim.SGD(params, lr=0.0003, momentum=0.9, weight_decay=0.0005)
+
     # learning rate
-    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
+    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=1, T_mult=2)
 
     # training
     max_model_pd = 0
@@ -203,24 +190,54 @@ if __name__ == "__main__":
         epoch += add_epoch + 1
         # train for one epoch
         # print_freq = 50, 每 50 次进行一次打印
-        print(epoch)
-        each_metric_logger = train_one_epoch_segment(model, optimizer, data_loader_train, device, epoch, print_freq=50)
+        each_metric_logger = train_one_epoch(model, optimizer, data_loader_train, device, epoch, print_freq=50, train_log_path=train_log_path)
         # save_log(each_metric_logger)
         # update the learning rate
         lr_scheduler.step()
         # evaluate on the test dataset
-        # if epoch % save_epoch == 0:
-        #     # fixme 记录详细的验证日志
-        #     model_pd = evaluate(model, data_loader_test, device=device, label_dict={i+1:label_list[i] for i in range(len(label_list))})
-        #     if model_pd > max_model_pd:
-        #         model_path = os.path.join(save_dir, "{0}_best.pth".format(save_name))
-        #         torch.save(model, model_path)
+        if epoch % save_epoch == 0:
+            # fixme 记录详细的验证日志
+            model_pd = evaluate(model, data_loader_test, device=device, label_dict={i+1:label_list[i] for i in range(len(label_list))})
+            if model_pd > max_model_pd:
+                model_path = os.path.join(save_dir, "{0}_best.pth".format(save_name))
+                torch.save(model, model_path)
         # save model
         if epoch % save_epoch == 0:
             if not os.path.exists(save_dir):
                 os.makedirs(save_dir)
-            model_path = os.path.join(save_dir,"{0}_{1}_{2}.pth".format(save_name, epoch, epoch * len(data_loader_train)))
+            model_path = os.path.join(save_dir, "{0}_{1}_{2}.pth".format(save_name, epoch, epoch*len(data_loader_train)))
             torch.save(model, model_path)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

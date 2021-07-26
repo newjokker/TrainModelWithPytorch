@@ -76,7 +76,7 @@ def dete_one_img(assign_img_path, assign_save_folder):
 def save_test_log(train_log_folder):
     """记录训练命令"""
     if not os.path.exists(train_log_folder): os.makedirs(train_log_folder)
-    train_log_path = os.path.join(train_log_folder, 'test_log.txt')
+    train_log_path = os.path.join(train_log_folder, 'test_mask_log.txt')
     time_str = datetime.datetime.strftime(datetime.datetime.now() + datetime.timedelta(hours=13), "%Y-%m-%d-%H:%M:%S")
     with open(train_log_path, 'a') as txt_file:
         txt_file.write(time_str + " : ")
@@ -92,7 +92,7 @@ if __name__ == "__main__":
     # python3 test.py -am ./model/test.pth -id ./imgs --gpuID 2 -save ./res -conf 0.5
 
     args = args_parse()
-    save_test_log("./logs")
+    save_test_log("../logs")
     # ----------------------------------------------------------------------------------------------------------------------
     model_path = args['assign_model']
     img_path = args['img_path']

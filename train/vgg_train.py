@@ -62,7 +62,7 @@ def get_transform(train):
 def save_train_log(train_log_folder):
     """记录训练命令"""
     if not os.path.exists(train_log_folder): os.makedirs(train_log_folder)
-    train_log_path = os.path.join(train_log_folder, 'train_log.txt')
+    train_log_path = os.path.join(train_log_folder, 'train_vgg_log.txt')
     time_str = datetime.datetime.strftime(datetime.datetime.now() + datetime.timedelta(hours=13), "%Y-%m-%d-%H:%M:%S")
     with open(train_log_path, 'a') as txt_file:
         txt_file.write(time_str + " : ")
@@ -76,7 +76,7 @@ if __name__ == "__main__":
     # todo 加载完数据后打印参与训练的图片的个数
 
     args = args_parse()
-    train_log_dir = "./logs"
+    train_log_dir = "../logs"
     save_train_log(train_log_dir)
     # ----------------------------------------------------------------------------------------------------------------------
     root_dir = args["root_dir"].rstrip('/')
