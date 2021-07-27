@@ -104,6 +104,7 @@ class ClassifyDataset(torch.utils.data.Dataset):
         img_path = self.imgs[item]
         img = Image.open(img_path).convert("RGB")
         img = img.resize((224,224))
+
         target = torch.as_tensor(self.labels[item], dtype=torch.int64)
         #
         if self.transforms is not None:

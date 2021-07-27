@@ -82,12 +82,12 @@ if __name__ == "__main__":
     if not os.path.exists(save_folder): os.makedirs(save_folder)
     os.environ["CUDA_VISIBLE_DEVICES"] = args['gpuID']
     # bg 是背景
-    label_list = ["fzc_yt", "fzc_sm", "fzc_gt", "fzc_other", "zd_yt", 'zd_sm', "zd_gt", "zd_other", "qx_yt", "qx_sm", "qx_gt", "other"]
+    label_list = ["0", "1", "2"]
     # ----------------------------------------------------------------------------------------------------------------------
-    img_folder = r"C:\Users\14271\Desktop\del\test\test"
-    model_path = r"C:\Algo\Hand_CNN\FasterRcnn_pytorch\models\crop_18_1674.pth"
-    save_folder = r"C:\Users\14271\Desktop\del\res"
-    device = torch.device('cpu')
+    img_folder = r"/home/ldq/002_test_data/cdx_val"
+    model_path = r"/home/ldq/TrainModelWithPytorch/models/old/cdx_train_13_14599.pth"
+    save_folder = r"/home/ldq/TrainModelWithPytorch/del"
+    device = torch.device('cuda')
     # ----------------------------------------------------------------------------------------------------------------------
 
     model = torch.load(model_path)

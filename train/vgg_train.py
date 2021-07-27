@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 from torchvision import datasets, transforms
 
 from vision_tools import transforms as T
-from vision_tools.engine import train_one_epoch, evaluate, train_one_epoch_classify
+from vision_tools.engine import train_one_epoch_classify,evaluate_classify
 from vision_tools import utils
 from vision_tools.jo_dataset import ClassifyDataset
 from JoTools.txkj.parseXml import parse_xml
@@ -24,6 +24,7 @@ def args_parse():
     """参数解析"""
     ap = argparse.ArgumentParser()
     ap.add_argument("-rd", "--root_dir", type=str)
+    ap.add_argument("-td", "--test_dir", type=str, default="")
     ap.add_argument("-gpu", "--gpuID", type=str, default="2", help="")
     ap.add_argument("-sd", "--save_dir", type=str, default="./models", help="")
     ap.add_argument("-sn", "--save_name", type=str, default=None, help="")
@@ -81,6 +82,7 @@ if __name__ == "__main__":
     save_train_log(train_log_dir)
     # ----------------------------------------------------------------------------------------------------------------------
     root_dir = args["root_dir"].rstrip('/')
+    test_dir = args["test_dir"].rstrip('/')
     device = torch.device('cuda')
     # device = torch.device('cpu')
     batch_size = args["batch_size"]
@@ -101,19 +103,22 @@ if __name__ == "__main__":
     else:
         label_list =  list(map(lambda x: x.strip(), args["class_list"].split(',')))
     # ------------------------------------------------------------------------------------------------------------------
-    # get dataset
-    train_dataset = ClassifyDataset(root_dir, label_list, get_transform(train=True))
-    dataset_test = ClassifyDataset(root_dir, label_list, get_transform(train=False))
-
-    # fixme 这边应该直接改为一定的比例进行训练，而不是多少个
-    # get train_dataset, test_dataset
-    indices = torch.randperm(len(train_dataset)).tolist()
-    train_dataset = torch.utils.data.Subset(train_dataset, indices[:-10])
-    dataset_test = torch.utils.data.Subset(dataset_test, indices[-10:])
+    # fixme 这边有个错误，不进行转换的话，img 就没有转为 tensor
+    if test_dir:
+        # get dataset
+        train_dataset = ClassifyDataset(root_dir, label_list, get_transform(train=True))
+        dataset_test = ClassifyDataset(test_dir, label_list, get_transform(train=False))
+    else:
+        train_dataset = ClassifyDataset(root_dir, label_list, get_transform(train=True))
+        dataset_test = ClassifyDataset(root_dir, label_list, get_transform(train=False))
+        # get train_dataset, test_dataset
+        indices = torch.randperm(len(train_dataset)).tolist()
+        train_dataset = torch.utils.data.Subset(train_dataset, indices[:-10])
+        dataset_test = torch.utils.data.Subset(dataset_test, indices[-10:])
 
     # get data_loader
     data_loader_train = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, collate_fn=utils.collate_fn_classify)
-    data_loader_test = torch.utils.data.DataLoader(dataset_test, batch_size=batch_size, shuffle=False, num_workers=num_workers, collate_fn=utils.collate_fn_classify)
+    data_loader_test = torch.utils.data.DataLoader(dataset_test, batch_size=batch_size, shuffle=True, num_workers=num_workers, collate_fn=utils.collate_fn_classify)
 
     # get model
     add_epoch = 0
@@ -140,16 +145,11 @@ if __name__ == "__main__":
         # update epoch
         epoch += add_epoch + 1
         # train for one epoch
-        # fixme 这边其实返回了一个类似于日志的东西，看一下其中的内容，并保存为日志文件
-        # print_freq = 50, 每 50 次进行一次打印
         train_one_epoch_classify(model, optimizer, data_loader_train, epoch, device)
-        # print learning info
-        # print_log(each_metric_logger)
         # update the learning rate
         lr_scheduler.step()
         # evaluate on the test dataset
-        # if evaluate % 20 ==0:
-        # evaluate(model, data_loader_test, device=device)
+        evaluate_classify(model, data_loader_test, device=device)
         # save model
         if epoch % save_epoch == 0:
             if not os.path.exists(save_dir):

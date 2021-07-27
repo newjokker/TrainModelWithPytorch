@@ -18,6 +18,9 @@ from JoTools.operateDeteRes import OperateDeteRes
 from JoTools.txkjRes.deteObj import DeteObj
 from JoTools.utils.NumberUtil import NumberUtil
 import prettytable
+#from torch.autograd import Variable
+
+
 
 # 参考 :  https://github.com/pytorch/vision/tree/master/references/detection
 
@@ -285,13 +288,15 @@ def model_performance_index(acc_conf_rec, assign_label_list):
                 res_acc_list.append(max(each_rec, 0))
     return np.mean(res_acc_list)
 
+# ----------------------------------------------------------------------------------------------------------------------
+
 @torch.no_grad()
-def evaluate(model, data_loader, device, label_dict=None, conf_list=None, do_print=True):
+def evaluate_detection(model, data_loader, device, label_dict=None, conf_list=None, do_print=True):
     """验证"""
 
     # 对每个精度下的结果进行计算
     if conf_list is None:
-        conf_list = [0.4,0.5,0.6,0.7,0.8,0.9]
+        conf_list = [0.4,0.6,0.8]
 
     cpu_device = torch.device("cuda")
     model.eval()
@@ -327,29 +332,17 @@ def evaluate(model, data_loader, device, label_dict=None, conf_list=None, do_pri
     print("model_pd : {0}".format(model_pd))
     return model_pd
 
-# ----------------------------------------------------------------------------------------------------------------------
-
-def _get_iou_types(model):
-    model_without_ddp = model
-    if isinstance(model, torch.nn.parallel.DistributedDataParallel):
-        model_without_ddp = model.module
-    iou_types = ["bbox"]
-    if isinstance(model_without_ddp, torchvision.models.detection.MaskRCNN):
-        iou_types.append("segm")
-    if isinstance(model_without_ddp, torchvision.models.detection.KeypointRCNN):
-        iou_types.append("keypoints")
-    return iou_types
-
 @torch.no_grad()
-def evaluate_classify(model, data_loader, device):
+def evaluate_classify(model, test_loader, device='cuda'):
+    """计算分类模型性能"""
 
-    # todo 参考下面的进行编写
-
-    """
     test_loss = 0
     correct = 0
     for data, target in test_loader:
-        # data, target = Variable(data, volatile=True), Variable(target)
+        # 转为 cuda
+        data = data.to(device)
+        target = target.to(device)
+        #
         output = model(data)
         # sum up batch loss
         test_loss += F.nll_loss(output, target, size_average=False).data.item()
@@ -359,46 +352,28 @@ def evaluate_classify(model, data_loader, device):
 
     test_loss /= len(test_loader.dataset)
     print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(test_loader.dataset),100. * correct / len(test_loader.dataset)))
-    """
 
+@torch.no_grad()
+def evaluate_segment(model, test_loader, device='cuda'):
+    """计算分类模型性能"""
 
-    n_threads = torch.get_num_threads()
-    # FIXME remove this and make paste_masks_in_image run on the GPU
-    # cpu_device = torch.device("cpu")
-    cpu_device = torch.device("cuda")
-    torch.set_num_threads(1)
-    model.eval()
-    metric_logger = utils.MetricLogger(delimiter="  ")
-    header = 'Test:'
+    test_loss = 0
+    correct = 0
+    for data, target in test_loader:
+        # 转为 cuda
+        data = data.to(device)
+        target = target.to(device)
+        #
+        output = model(data)
+        # sum up batch loss
+        test_loss += F.nll_loss(output, target, size_average=False).data.item()
+        # get the index of the max log-probability
+        pred = output.data.max(1, keepdim=True)[1]
+        correct += pred.eq(target.data.view_as(pred)).cpu().sum()
 
-    coco = get_coco_api_from_dataset(data_loader.dataset)
-    iou_types = _get_iou_types(model)
-    coco_evaluator = CocoEvaluator(coco, iou_types)
+    test_loss /= len(test_loader.dataset)
+    print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(test_loader.dataset),100. * correct / len(test_loader.dataset)))
 
-    for images, targets in metric_logger.log_every(data_loader, 100, header):
-        images = list(img.to(device) for img in images)
-        torch.cuda.synchronize()
-        model_time = time.time()
-        outputs = model(images)
-
-        outputs = [{k: v.to(cpu_device) for k, v in t.items()} for t in outputs]
-        model_time = time.time() - model_time
-
-        res = {target["image_id"].item(): output for target, output in zip(targets, outputs)}
-        evaluator_time = time.time()
-        coco_evaluator.update(res)
-        evaluator_time = time.time() - evaluator_time
-        metric_logger.update(model_time=model_time, evaluator_time=evaluator_time)
-
-    # gather the stats from all processes
-    metric_logger.synchronize_between_processes()
-    print("Averaged stats:", metric_logger)
-    coco_evaluator.synchronize_between_processes()
-
-    # accumulate predictions from all images
-    coco_evaluator.accumulate()
-    coco_evaluator.summarize()
-    torch.set_num_threads(n_threads)
-    return coco_evaluator
+# ----------------------------------------------------------------------------------------------------------------------
 
 
