@@ -33,6 +33,7 @@ def args_parse():
     ap.add_argument("-nw", "--num_workers", type=int, default=12, help="")
     ap.add_argument("-se", "--save_epoch", type=int, default=5, help="多少个 epoch 保存一次")
     ap.add_argument("-ae", "--add_epoch", type=int, default=0, help="增加的 epoch")
+    ap.add_argument("-cl", "--class_list", type=str, default=None, help="分类类别")
     assign_args = vars(ap.parse_args())  # vars 返回对象object的属性和属性值的字典对象
     return assign_args
 
@@ -76,7 +77,7 @@ if __name__ == "__main__":
     # todo 加载完数据后打印参与训练的图片的个数
 
     args = args_parse()
-    train_log_dir = "../logs"
+    train_log_dir = "./logs"
     save_train_log(train_log_dir)
     # ----------------------------------------------------------------------------------------------------------------------
     root_dir = args["root_dir"].rstrip('/')
@@ -90,11 +91,16 @@ if __name__ == "__main__":
     save_dir = args["save_dir"]
     save_name = args["save_name"]
     save_epoch = args["save_epoch"]
-    # ----------------------------------------------------------------------------------------------------------------------
+    class_list = args["class_list"]
+    # ------------------------------------------------------------------------------------------------------------------
     if save_name is None: save_name = os.path.split(root_dir)[1]
-    # ----------------------------------------------------------------------------------------------------------------------
-    label_list = ["fzc_yt", "fzc_sm", "fzc_gt", "fzc_other", "zd_yt", 'zd_sm', "zd_gt", "zd_other", "qx_yt", "qx_sm", "qx_gt", "other"]
-
+    # ------------------------------------------------------------------------------------------------------------------
+    # get label list
+    if class_list is None:
+        label_list = ["fzc_broken", "sm", "gt", "yt", "zd_yt", 'other']
+    else:
+        label_list =  list(map(lambda x: x.strip(), args["class_list"].split(',')))
+    # ------------------------------------------------------------------------------------------------------------------
     # get dataset
     train_dataset = GetClassifyDataset(root_dir, label_list, get_transform(train=True))
     dataset_test = GetClassifyDataset(root_dir, label_list, get_transform(train=False))

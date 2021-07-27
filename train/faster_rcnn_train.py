@@ -139,9 +139,10 @@ if __name__ == "__main__":
     if save_name is None:
         save_name = os.path.split(root_dir)[1]
     # ----------------------------------------------------------------------------------------------------------------------
-    # label_list = ["fzc_yt", "fzc_sm", "fzc_gt", "fzc_other", "zd_yt", 'zd_sm', "zd_gt", "zd_other", "qx_yt", "qx_sm", "qx_gt", "other"]
-    label_list = ["fzc", "other"]
-    # label_list = list(map(lambda x: x.strip(), args["class_list"].split(',')))
+    if args["class_list"] is None:
+        label_list = ["fzc", "other"]
+    else:
+        label_list = list(map(lambda x: x.strip(), args["class_list"].split(',')))
     # ----------------------------------------------------------------------------------------------------------------------
     label_dict = {label_list[i]: i + 1 for i in range(len(label_list))}
     num_classes = len(label_list) + 1
@@ -207,37 +208,5 @@ if __name__ == "__main__":
                 os.makedirs(save_dir)
             model_path = os.path.join(save_dir, "{0}_{1}_{2}.pth".format(save_name, epoch, epoch*len(data_loader_train)))
             torch.save(model, model_path)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 

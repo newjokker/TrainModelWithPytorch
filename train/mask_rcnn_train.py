@@ -125,7 +125,7 @@ def save_train_log(train_log_folder):
 if __name__ == "__main__":
 
     args = args_parse()
-    train_log_dir = "../logs"
+    train_log_dir = "./logs"
     save_train_log(train_log_dir)
     # ----------------------------------------------------------------------------------------------------------------------
     root_dir = args["root_dir"].rstrip('/')
@@ -144,9 +144,10 @@ if __name__ == "__main__":
     if save_name is None:
         save_name = os.path.split(root_dir)[1]
     # ----------------------------------------------------------------------------------------------------------------------
-    # label_list = ["fzc_yt", "fzc_sm", "fzc_gt", "fzc_other", "zd_yt", 'zd_sm', "zd_gt", "zd_other", "qx_yt", "qx_sm", "qx_gt", "other"]
-    label_list = ["fzc"]
-    # label_list = list(map(lambda x: x.strip(), args["class_list"].split(',')))
+    if args["class_list"] is None:
+        label_list = ["fzc", "other"]
+    else:
+        label_list = list(map(lambda x: x.strip(), args["class_list"].split(',')))
     # ----------------------------------------------------------------------------------------------------------------------
     label_dict = {label_list[i]: i + 1 for i in range(len(label_list))}
     num_classes = len(label_list) + 1
