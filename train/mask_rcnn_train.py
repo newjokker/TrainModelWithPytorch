@@ -17,7 +17,7 @@ from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 from vision_tools import transforms as T
 from vision_tools.engine import train_one_epoch_segment
 from vision_tools import utils
-from vision_tools.jo_dataset import GetSegmentDataset
+from vision_tools.jo_dataset import SegmentDataset
 from JoTools.txkj.parseXml import parse_xml
 
 """
@@ -157,12 +157,12 @@ if __name__ == "__main__":
     if test_dir:
         # get dataset
         # fixme 完善 transform 函数
-        train_dataset = GetSegmentDataset(root_dir, label_dict, get_transform(train=False))
-        dataset_test = GetSegmentDataset(test_dir, label_dict, get_transform(train=False))
+        train_dataset = SegmentDataset(root_dir, label_dict, get_transform(train=False))
+        dataset_test = SegmentDataset(test_dir, label_dict, get_transform(train=False))
     else:
         # get dataset
-        train_dataset = GetSegmentDataset(root_dir, label_dict, get_transform(train=False))
-        dataset_test = GetSegmentDataset(root_dir, label_dict, get_transform(train=False))
+        train_dataset = SegmentDataset(root_dir, label_dict, get_transform(train=False))
+        dataset_test = SegmentDataset(root_dir, label_dict, get_transform(train=False))
         # do test for 200 img
         indices = torch.randperm(len(train_dataset)).tolist()
         train_dataset = torch.utils.data.Subset(train_dataset, indices[:-20])

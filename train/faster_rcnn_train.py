@@ -16,7 +16,7 @@ from torchvision import datasets, transforms
 from vision_tools import transforms as T
 from vision_tools.engine import train_one_epoch, evaluate
 from vision_tools import utils
-from vision_tools.jo_dataset import GetDataset
+from vision_tools.jo_dataset import DeteDataset
 from JoTools.txkj.parseXml import parse_xml
 
 
@@ -120,7 +120,7 @@ def save_train_log(train_log_folder):
 if __name__ == "__main__":
 
     args = args_parse()
-    train_log_dir = "../logs"
+    train_log_dir = "./logs"
     save_train_log(train_log_dir)
     # ----------------------------------------------------------------------------------------------------------------------
     root_dir = args["root_dir"].rstrip('/')
@@ -151,12 +151,12 @@ if __name__ == "__main__":
     # get train_dataset, test_dataset
     if test_dir:
         # get dataset
-        train_dataset = GetDataset(root_dir, label_dict, get_transform(train=True))
-        dataset_test = GetDataset(test_dir, label_dict, get_transform(train=False))
+        train_dataset = DeteDataset(root_dir, label_dict, get_transform(train=True))
+        dataset_test = DeteDataset(test_dir, label_dict, get_transform(train=False))
     else:
         # get dataset
-        train_dataset = GetDataset(root_dir, label_dict, get_transform(train=True))
-        dataset_test = GetDataset(root_dir, label_dict, get_transform(train=False))
+        train_dataset = DeteDataset(root_dir, label_dict, get_transform(train=True))
+        dataset_test = DeteDataset(root_dir, label_dict, get_transform(train=False))
         # do test for 200 img
         indices = torch.randperm(len(train_dataset)).tolist()
         train_dataset = torch.utils.data.Subset(train_dataset, indices[:-200])

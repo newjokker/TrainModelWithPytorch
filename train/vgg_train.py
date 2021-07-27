@@ -16,7 +16,7 @@ from torchvision import datasets, transforms
 from vision_tools import transforms as T
 from vision_tools.engine import train_one_epoch, evaluate, train_one_epoch_classify
 from vision_tools import utils
-from vision_tools.jo_dataset import GetDataset, GetClassifyDataset
+from vision_tools.jo_dataset import ClassifyDataset
 from JoTools.txkj.parseXml import parse_xml
 
 
@@ -102,8 +102,8 @@ if __name__ == "__main__":
         label_list =  list(map(lambda x: x.strip(), args["class_list"].split(',')))
     # ------------------------------------------------------------------------------------------------------------------
     # get dataset
-    train_dataset = GetClassifyDataset(root_dir, label_list, get_transform(train=True))
-    dataset_test = GetClassifyDataset(root_dir, label_list, get_transform(train=False))
+    train_dataset = ClassifyDataset(root_dir, label_list, get_transform(train=True))
+    dataset_test = ClassifyDataset(root_dir, label_list, get_transform(train=False))
 
     # fixme 这边应该直接改为一定的比例进行训练，而不是多少个
     # get train_dataset, test_dataset

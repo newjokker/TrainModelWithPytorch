@@ -10,32 +10,8 @@ from JoTools.utils.FileOperationUtil import FileOperationUtil
 from JoTools.txkjRes.segmentJson import SegmentJson
 
 
-def xml_info_to_target(xml_info, label_dict, idx):
-    """将 xml_info 转为 target 格式"""
-    boxes, labels = [], []
-    for each_object in xml_info['object']:
-        name = each_object['name']
-        labels.append(np.int(label_dict[name]))
-        bndbox = each_object['bndbox']
-        xmin, ymin, xmax, ymax = float(bndbox['xmin']), float(bndbox['ymin']), float(bndbox['xmax']), float(bndbox['ymax'])
-        boxes.append([xmin, ymin, xmax, ymax])
 
-    boxes = torch.as_tensor(boxes, dtype=torch.float32)
-    labels = torch.as_tensor(labels, dtype=torch.int64)
-    image_id = torch.tensor([idx])
-    area = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
-    # suppose all instances are not crowd
-    iscrowd = torch.zeros((len(xml_info['object']),), dtype=torch.int64)
-    #
-    target = {"boxes": boxes, "labels": labels, "image_id": image_id, "area": area, "iscrowd": iscrowd}
-    return target
-
-def target_to_xml_info(target):
-    """将 target 转为 xml_info 样式"""
-    pass
-
-
-class GetDataset(torch.utils.data.Dataset):
+class DeteDataset(torch.utils.data.Dataset):
     """解析数据，得到符合规范的 dataset"""
 
     def __init__(self, root, label_dict, assign_transforms=None):
@@ -48,7 +24,7 @@ class GetDataset(torch.utils.data.Dataset):
         img_dir = os.path.join(root, "JPEGImages")
         # 找到有对应 img 的 xml 准备训练，这样可以用一份完整的 jpg 对应多个 xml
         for each_xml_path in FileOperationUtil.re_all_file(xml_dir, endswitch=['.xml']):
-            each_img_path = os.path.join(img_dir, FileOperationUtil.bang_path(each_xml_path)[1], '.jpg')
+            each_img_path = os.path.join(img_dir, FileOperationUtil.bang_path(each_xml_path)[1] + '.jpg')
             if os.path.exists(each_img_path):
                 self.imgs.append(each_img_path)
                 self.xmls.append(each_xml_path)
@@ -61,7 +37,29 @@ class GetDataset(torch.utils.data.Dataset):
         img = Image.open(img_path).convert("RGB")
         # 读取 xml 信息
         xml_info = parse_xml(xml_path)
-        target = xml_info_to_target(xml_info, self.label_dict, idx)
+
+        # --------------------------------------------------------------------------------------------------------------
+        # target = xml_info_to_target(xml_info, self.label_dict, idx)
+
+        boxes, labels = [], []
+        for each_object in xml_info['object']:
+            name = each_object['name']
+            labels.append(np.int(self.label_dict[name]))
+            bndbox = each_object['bndbox']
+            xmin, ymin, xmax, ymax = float(bndbox['xmin']), float(bndbox['ymin']), float(bndbox['xmax']), float(
+                bndbox['ymax'])
+            boxes.append([xmin, ymin, xmax, ymax])
+
+        boxes = torch.as_tensor(boxes, dtype=torch.float32)
+        labels = torch.as_tensor(labels, dtype=torch.int64)
+        image_id = torch.tensor([idx])
+        area = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
+        # suppose all instances are not crowd
+        iscrowd = torch.zeros((len(xml_info['object']),), dtype=torch.int64)
+        #
+        target = {"boxes": boxes, "labels": labels, "image_id": image_id, "area": area, "iscrowd": iscrowd}
+
+        # --------------------------------------------------------------------------------------------------------------
 
         if self.transforms is not None:
             img, target = self.transforms(img, target)
@@ -72,7 +70,7 @@ class GetDataset(torch.utils.data.Dataset):
         return len(self.imgs)
 
 
-class GetClassifyDataset(torch.utils.data.Dataset):
+class ClassifyDataset(torch.utils.data.Dataset):
     """获取分类模型的 dataset"""
 
     def __init__(self, root, label_list, assign_transforms=None):
@@ -116,7 +114,7 @@ class GetClassifyDataset(torch.utils.data.Dataset):
         return len(self.imgs)
 
 
-class GetSegmentDataset(torch.utils.data.Dataset):
+class SegmentDataset(torch.utils.data.Dataset):
     """获取分割模型的 dataset"""
 
     def __init__(self, root, label_dict, assign_transforms=None):
