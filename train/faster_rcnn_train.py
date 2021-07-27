@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 from torchvision import datasets, transforms
 
 from vision_tools import transforms as T
-from vision_tools.engine import train_one_epoch, evaluate
+from vision_tools.engine import train_one_epoch,evaluate_detection
 from vision_tools import utils
 from vision_tools.jo_dataset import DeteDataset
 from JoTools.txkj.parseXml import parse_xml
@@ -169,7 +169,8 @@ if __name__ == "__main__":
     # get model
     add_epoch = 0
     if args["assign_model"] is None:
-        model = torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=False, progress=True, num_classes=num_classes, pretrained_backbone=True)
+        # fixme 使用预训练集，改为 True，测试的时候用 False
+        model = torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=False, progress=True, num_classes=num_classes, pretrained_backbone=False)
         # torchvision.models.detection.
     else:
         model = torch.load(args["assign_model"])
@@ -190,18 +191,14 @@ if __name__ == "__main__":
         # update epoch
         epoch += add_epoch + 1
         # train for one epoch
-        # print_freq = 50, 每 50 次进行一次打印
         each_metric_logger = train_one_epoch(model, optimizer, data_loader_train, device, epoch, print_freq=50, train_log_path=train_log_path)
-        # save_log(each_metric_logger)
         # update the learning rate
         lr_scheduler.step()
         # evaluate on the test dataset
-        if epoch % save_epoch == 0:
-            # fixme 记录详细的验证日志
-            model_pd = evaluate(model, data_loader_test, device=device, label_dict={i+1:label_list[i] for i in range(len(label_list))})
-            if model_pd > max_model_pd:
-                model_path = os.path.join(save_dir, "{0}_best.pth".format(save_name))
-                torch.save(model, model_path)
+        model_pd = evaluate_detection(model, data_loader_test, device=device, label_dict={i+1:label_list[i] for i in range(len(label_list))})
+        if model_pd > max_model_pd:
+            model_path = os.path.join(save_dir, "{0}_best.pth".format(save_name))
+            torch.save(model, model_path)
         # save model
         if epoch % save_epoch == 0:
             if not os.path.exists(save_dir):

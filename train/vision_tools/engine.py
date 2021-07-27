@@ -14,7 +14,7 @@ import torch.nn as nn
 import math
 import numpy as np
 from JoTools.txkjRes.deteRes import DeteRes
-from JoTools.operateDeteRes import OperateDeteRes
+from JoTools.operateDeteRes import DeteAcc
 from JoTools.txkjRes.deteObj import DeteObj
 from JoTools.utils.NumberUtil import NumberUtil
 import prettytable
@@ -290,8 +290,9 @@ def model_performance_index(acc_conf_rec, assign_label_list):
 
 # ----------------------------------------------------------------------------------------------------------------------
 
+# fixme 这个是计算多个 conf 下的模型表现情况
 @torch.no_grad()
-def evaluate_detection(model, data_loader, device, label_dict=None, conf_list=None, do_print=True):
+def evaluate_detection_mulit(model, data_loader, device, label_dict=None, conf_list=None, do_print=True):
     """验证"""
 
     # 对每个精度下的结果进行计算
@@ -333,9 +334,43 @@ def evaluate_detection(model, data_loader, device, label_dict=None, conf_list=No
     return model_pd
 
 @torch.no_grad()
+def evaluate_detection(model, data_loader, device, label_dict=None, conf=0.5, do_print=True):
+    """验证"""
+    cpu_device = torch.device("cuda")
+    model.eval()
+    #
+    a = DeteAcc()
+    a.iou_thershold = 0.4       # 重合度阈值
+    res_dict = {}
+    for images, targets in data_loader:
+        images = list(img.to(device) for img in images)
+        # 参考 ：https://blog.csdn.net/u013548568/article/details/81368019
+        torch.cuda.synchronize(device)
+        outputs = model(images)
+        outputs = [{k: v.to(cpu_device) for k, v in t.items()} for t in outputs]
+        # 每一张图片进行对比
+        for i in range(len(outputs)):
+            res = _target_to_deteres(outputs[i], label_dict=label_dict)
+            real = _target_to_deteres(targets[i], label_dict=label_dict)
+            res.filter_by_conf(conf)
+            rere = a.compare_customer_and_standard(real, res)
+            res_dict = _dict_add(res_dict, rere)
+    acc_rec = a.cal_acc_rec(res_dict, tag_list=list(label_dict.values()))
+    print(acc_rec)
+    # model score
+    model_pd = 0
+    for each_label in acc_rec:
+        each_acc = acc_rec[each_label]["acc"]
+        each_rec = acc_rec[each_label]["rec"]
+        if each_acc != -1:
+            model_pd += each_acc
+        if each_rec != -1:
+            model_pd += each_rec
+    return model_pd
+
+@torch.no_grad()
 def evaluate_classify(model, test_loader, device='cuda'):
     """计算分类模型性能"""
-
     test_loss = 0
     correct = 0
     for data, target in test_loader:
@@ -352,28 +387,12 @@ def evaluate_classify(model, test_loader, device='cuda'):
 
     test_loss /= len(test_loader.dataset)
     print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(test_loader.dataset),100. * correct / len(test_loader.dataset)))
+    return (100.0 * correct) / len(test_loader.dataset)
 
 @torch.no_grad()
 def evaluate_segment(model, test_loader, device='cuda'):
     """计算分类模型性能"""
-
-    test_loss = 0
-    correct = 0
-    for data, target in test_loader:
-        # 转为 cuda
-        data = data.to(device)
-        target = target.to(device)
-        #
-        output = model(data)
-        # sum up batch loss
-        test_loss += F.nll_loss(output, target, size_average=False).data.item()
-        # get the index of the max log-probability
-        pred = output.data.max(1, keepdim=True)[1]
-        correct += pred.eq(target.data.view_as(pred)).cpu().sum()
-
-    test_loss /= len(test_loader.dataset)
-    print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(test_loader.dataset),100. * correct / len(test_loader.dataset)))
-
+    pass
 # ----------------------------------------------------------------------------------------------------------------------
 
 

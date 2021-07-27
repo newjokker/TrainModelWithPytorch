@@ -8,7 +8,7 @@ from PIL import Image
 from JoTools.txkj.parseXml import parse_xml
 from JoTools.utils.FileOperationUtil import FileOperationUtil
 from JoTools.txkjRes.segmentJson import SegmentJson
-
+from JoTools.txkjRes.deteRes import DeteRes
 
 
 class DeteDataset(torch.utils.data.Dataset):
@@ -23,11 +23,21 @@ class DeteDataset(torch.utils.data.Dataset):
         xml_dir = os.path.join(root, "Annotations")
         img_dir = os.path.join(root, "JPEGImages")
         # 找到有对应 img 的 xml 准备训练，这样可以用一份完整的 jpg 对应多个 xml
+        print("* check train data ")
+        obj_num_dict = {}
         for each_xml_path in FileOperationUtil.re_all_file(xml_dir, endswitch=['.xml']):
             each_img_path = os.path.join(img_dir, FileOperationUtil.bang_path(each_xml_path)[1] + '.jpg')
             if os.path.exists(each_img_path):
-                self.imgs.append(each_img_path)
-                self.xmls.append(each_xml_path)
+                dete_xml = DeteRes(each_xml_path)
+                obj_num_dict = self._dict_add(dete_xml.count_tags(), obj_num_dict)
+                if len(dete_xml) > 0:
+                    self.imgs.append(each_img_path)
+                    self.xmls.append(each_xml_path)
+        # print
+        print('-' * 50)
+        for each_item in obj_num_dict.items():
+            print(each_item)
+        print('-' * 50)
 
     def __getitem__(self, idx):
         # load images and bbox
@@ -68,6 +78,18 @@ class DeteDataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.imgs)
+
+    @staticmethod
+    def _dict_add(dict_1, dict_2):
+        """字典之间的相加"""
+        res = dict_1.copy()
+        # 整合
+        for each_key in dict_2:
+            if each_key in res:
+                res[each_key] += dict_2[each_key]
+            else:
+                res[each_key] = dict_2[each_key]
+        return res
 
 
 class ClassifyDataset(torch.utils.data.Dataset):

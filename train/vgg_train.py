@@ -139,6 +139,7 @@ if __name__ == "__main__":
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=1, T_mult=2)
 
     # training
+    max_model_pd = 0
     for epoch in range(num_epochs):
         print('-'*50)
         print(epoch)
@@ -149,7 +150,11 @@ if __name__ == "__main__":
         # update the learning rate
         lr_scheduler.step()
         # evaluate on the test dataset
-        evaluate_classify(model, data_loader_test, device=device)
+        model_pd = evaluate_classify(model, data_loader_test, device=device)
+        #
+        if model_pd > max_model_pd:
+            model_path = os.path.join(save_dir, "{0}_best.pth".format(save_name))
+            torch.save(model, model_path)
         # save model
         if epoch % save_epoch == 0:
             if not os.path.exists(save_dir):
