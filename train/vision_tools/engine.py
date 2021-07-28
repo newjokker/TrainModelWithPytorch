@@ -297,7 +297,7 @@ def evaluate_detection_mulit(model, data_loader, device, label_dict=None, conf_l
 
     # 对每个精度下的结果进行计算
     if conf_list is None:
-        conf_list = [0.4,0.6,0.8]
+        conf_list = [0.4,0.5,0.6,0.7,0.8]
 
     cpu_device = torch.device("cuda")
     model.eval()

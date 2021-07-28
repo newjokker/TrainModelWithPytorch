@@ -18,18 +18,21 @@ class DeteDataset(torch.utils.data.Dataset):
         self.root_dir = root
         self.label_dict = label_dict
         self.transforms = assign_transforms
+        self.img_max_szie = 1200
         #
         self.imgs, self.xmls = [], []
         xml_dir = os.path.join(root, "Annotations")
         img_dir = os.path.join(root, "JPEGImages")
-        # 找到有对应 img 的 xml 准备训练，这样可以用一份完整的 jpg 对应多个 xml
-        print("* check train data ")
+        #
+        print("* check data ")
         obj_num_dict = {}
         for each_xml_path in FileOperationUtil.re_all_file(xml_dir, endswitch=['.xml']):
             each_img_path = os.path.join(img_dir, FileOperationUtil.bang_path(each_xml_path)[1] + '.jpg')
+            # filter img
             if os.path.exists(each_img_path):
                 dete_xml = DeteRes(each_xml_path)
                 obj_num_dict = self._dict_add(dete_xml.count_tags(), obj_num_dict)
+                # filter xml
                 if len(dete_xml) > 0:
                     self.imgs.append(each_img_path)
                     self.xmls.append(each_xml_path)
@@ -45,19 +48,27 @@ class DeteDataset(torch.utils.data.Dataset):
         xml_path = os.path.join(self.root_dir, "Annotations", self.xmls[idx])
         #
         img = Image.open(img_path).convert("RGB")
+        # get resize ratio
+        height, width = img.height, img.width
+        if max(height, width) < self.img_max_szie:
+            # fixme do not resize ?
+           resize_ratio = None
+        else:
+            resize_ratio = self.img_max_szie / max(height, width)
         # 读取 xml 信息
         xml_info = parse_xml(xml_path)
-
         # --------------------------------------------------------------------------------------------------------------
         # target = xml_info_to_target(xml_info, self.label_dict, idx)
-
         boxes, labels = [], []
         for each_object in xml_info['object']:
             name = each_object['name']
             labels.append(np.int(self.label_dict[name]))
             bndbox = each_object['bndbox']
-            xmin, ymin, xmax, ymax = float(bndbox['xmin']), float(bndbox['ymin']), float(bndbox['xmax']), float(
-                bndbox['ymax'])
+            xmin, ymin, xmax, ymax = float(bndbox['xmin']), float(bndbox['ymin']), float(bndbox['xmax']), float(bndbox['ymax'])
+            # resize target
+            if resize_ratio is not None:
+                # todo 实验一下这边是不是需要转为整数
+                xmin, ymin, xmax, ymax = xmin*resize_ratio, ymin*resize_ratio, xmax*resize_ratio, ymax*resize_ratio
             boxes.append([xmin, ymin, xmax, ymax])
 
         boxes = torch.as_tensor(boxes, dtype=torch.float32)

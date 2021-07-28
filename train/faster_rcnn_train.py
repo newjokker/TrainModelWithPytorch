@@ -22,9 +22,11 @@ from JoTools.txkj.parseXml import parse_xml
 
 """
 # 运行的 torch 环境
+    # -------------- 
     * python 3.6.10 
     * torch-1.5.0+cu101-cp36-cp36m-linux_x86_64.whl
     * torchvision-0.6.0+cu101-cp36-cp36m-linux_x86_64.whl
+    # --------------
     * python 3.5.6
     * torch-1.5.0+cu92-cp35-cp35m-linux_x86_64
     * torchvision-0.6.0+cu92-cp35-cp35m-linux_x86_64
@@ -195,7 +197,7 @@ if __name__ == "__main__":
         # update the learning rate
         lr_scheduler.step()
         # evaluate on the test dataset
-        model_pd = evaluate_detection(model, data_loader_test, device=device, label_dict={i+1:label_list[i] for i in range(len(label_list))})
+        model_pd = evaluate_detection(model, data_loader_test, device=device, label_dict={i+1:label_list[i] for i in range(len(label_list))}, conf=0.4)
         if model_pd > max_model_pd:
             model_path = os.path.join(save_dir, "{0}_best.pth".format(save_name))
             torch.save(model, model_path)
