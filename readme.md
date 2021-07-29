@@ -24,6 +24,8 @@
     * faster rcnn [√] 未测试
     * mask rcnn [×]
 
+* 训练模型可以提供只跑验证集的模式 test_only，这样其实基本就用不着 test 代码了
+
 
 ### 元参考
 

@@ -144,6 +144,7 @@ def reduce_dict(input_dict, average=True):
 
 class MetricLogger(object):
     def __init__(self, delimiter="\t"):
+        # fixme 所以这个 self.meters 是个默认字典结构，那么他的 key 和 value 分别是什么呢？
         self.meters = defaultdict(SmoothedValue)
         self.delimiter = delimiter
 
@@ -152,6 +153,7 @@ class MetricLogger(object):
             if isinstance(v, torch.Tensor):
                 v = v.item()
             assert isinstance(v, (float, int))
+            # fixme 不太能看懂这个类的妙处
             self.meters[k].update(v)
 
     def __getattr__(self, attr):

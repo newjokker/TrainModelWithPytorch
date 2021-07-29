@@ -49,12 +49,13 @@ class DeteDataset(torch.utils.data.Dataset):
         #
         img = Image.open(img_path).convert("RGB")
         # get resize ratio
-        height, width = img.height, img.width
-        if max(height, width) < self.img_max_szie:
-            # fixme do not resize ?
-           resize_ratio = None
-        else:
-            resize_ratio = self.img_max_szie / max(height, width)
+        resize_ratio = None
+        # height, width = img.height, img.width
+        # if max(height, width) < self.img_max_szie:
+        #     # fixme do not resize ?
+        #    resize_ratio = None
+        # else:
+        #     resize_ratio = self.img_max_szie / max(height, width)
         # 读取 xml 信息
         xml_info = parse_xml(xml_path)
         # --------------------------------------------------------------------------------------------------------------

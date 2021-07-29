@@ -64,6 +64,8 @@ def args_parse():
     ap.add_argument("-ae", "--add_epoch", type=int, default=0, help="增加的 epoch")
     ap.add_argument("-cl", "--class_list", type=str, default=None, help="分类类别")
     ap.add_argument("-log", "--train_log_path", type=str, default='./logs/train.log', help="训练日志地址")
+    ap.add_argument("-to", "--test_only", type=str, default='False', help="只是检测模型效果")
+    ap.add_argument("-conf", "--config", type=float, default=0.5, help="验证时用的阈值")
     assign_args = vars(ap.parse_args())  # vars 返回对象object的属性和属性值的字典对象
     return assign_args
 
@@ -187,6 +189,11 @@ if __name__ == "__main__":
     # learning rate
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=1, T_mult=2)
 
+    # just test
+    if args["test_only"] == 'True':
+        model_pd = evaluate_detection(model, data_loader_test, device=device, label_dict={i + 1: label_list[i] for i in range(len(label_list))}, conf=args["config"])
+        exit()
+
     # training
     max_model_pd = 0
     for epoch in range(num_epochs):
@@ -197,7 +204,7 @@ if __name__ == "__main__":
         # update the learning rate
         lr_scheduler.step()
         # evaluate on the test dataset
-        model_pd = evaluate_detection(model, data_loader_test, device=device, label_dict={i+1:label_list[i] for i in range(len(label_list))}, conf=0.4)
+        model_pd = evaluate_detection(model, data_loader_test, device=device, label_dict={i+1:label_list[i] for i in range(len(label_list))}, conf=args["config"])
         if model_pd > max_model_pd:
             model_path = os.path.join(save_dir, "{0}_best.pth".format(save_name))
             torch.save(model, model_path)
